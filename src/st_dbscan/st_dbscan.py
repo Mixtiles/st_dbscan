@@ -20,6 +20,8 @@ from scipy.sparse import coo_matrix
 from sklearn.neighbors import NearestNeighbors
 import warnings
 
+from tqdm import tqdm
+
 
 class ST_DBSCAN:
     """
@@ -176,7 +178,14 @@ class ST_DBSCAN:
 
         return self
 
-    def fit_frame_split(self, X, frame_size, frame_overlap=None):
+    def fit_frame_split(
+        self,
+        X,
+        frame_size,
+        frame_overlap=None,
+        *,
+        progress: bool = False,
+    ):
         """
         Apply the ST DBSCAN algorithm with splitting it into frames.
         ----------
@@ -220,7 +229,7 @@ class ST_DBSCAN:
         deficit = frame_size - len(X) % frame_size
         X = np.pad(X, ((0, deficit), (0, 0)), mode="constant", constant_values=np.nan)
         frames = sliding_window_view(X, frame_size, 0)[::frame_overlap].swapaxes(1, 2)
-        for i, frame in enumerate(frames, 1):
+        for i, frame in enumerate(tqdm(frames, disable=not progress), 1):
             if i == len(frames):
                 frame = frame[:-deficit]
 
