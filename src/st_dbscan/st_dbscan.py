@@ -107,13 +107,11 @@ class ST_DBSCAN:
             # Compute sqaured form Euclidean Distance Matrix for 'time' attribute and the spatial attributes
             time_dist = pdist(X[:, 0].reshape(n, 1), metric=self.temporal_metric)
             if self.spatial_metric == "haversine":
-                spatial_dist = haversine_distances(np.radians(X[:, 1:]))
+                spatial_dist = squareform(haversine_distances(np.radians(X[:, 1:])))
             else:
                 spatial_dist = pdist(X[:, 1:], metric=self.spatial_metric)
-                spatial_dist = squareform(spatial_dist)
 
             # filter the spatial_dist matrix using the time_dist
-            time_dist = squareform(time_dist)
             dist = np.where(
                 time_dist <= self.temporal_eps, spatial_dist, 2 * self.spatial_eps
             )
@@ -124,7 +122,7 @@ class ST_DBSCAN:
                 metric="precomputed",
                 n_jobs=self.n_jobs,
             )
-            db.fit(dist)
+            db.fit(squareform(dist))
 
             self.labels = db.labels_
 
