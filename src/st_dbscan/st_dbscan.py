@@ -65,6 +65,7 @@ class ST_DBSCAN:
         metric="euclidean",
         spatial_metric=None,
         temporal_metric=None,
+        squareform_threshold: int = 20000,
         n_jobs=-1,
     ):
         self.spatial_eps = spatial_eps
@@ -72,6 +73,7 @@ class ST_DBSCAN:
         self.min_samples = min_samples
         self.spatial_metric = spatial_metric or metric
         self.temporal_metric = temporal_metric or metric
+        self.squareform_threshold = squareform_threshold
         self.n_jobs = n_jobs
 
     def fit(self, X):
@@ -101,7 +103,7 @@ class ST_DBSCAN:
 
         n, m = X.shape
 
-        if len(X) < 100000:
+        if len(X) < self.squareform_threshold:
             # compute with quadratic memory consumption
 
             # Compute sqaured form Euclidean Distance Matrix for 'time' attribute and the spatial attributes
@@ -147,9 +149,7 @@ class ST_DBSCAN:
                     n_jobs=self.n_jobs,
                 )
                 nn_time.fit(X[:, 0].reshape(n, 1))
-                time_sp = nn_time.radius_neighbors_graph(
-                    X[:, 0].reshape(n, 1), mode="distance"
-                )
+                time_sp = nn_time.radius_neighbors_graph(X[:, 0].reshape(n, 1))
 
                 # combine both sparse matrixes and filter by time distance matrix
                 row = time_sp.nonzero()[0]
