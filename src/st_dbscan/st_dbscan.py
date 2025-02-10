@@ -11,6 +11,7 @@ ST-DBSCAN - fast scalable implementation of ST DBSCAN
 # License: MIT
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import haversine_distances
@@ -199,8 +200,7 @@ class ST_DBSCAN:
         X = check_array(X)
 
         # default values for overlap
-        if frame_overlap == None:
-            frame_overlap = self.temporal_eps
+        frame_overlap = frame_overlap or self.temporal_eps
 
         if (
             not self.spatial_eps > 0.0
@@ -216,62 +216,48 @@ class ST_DBSCAN:
         ):
             raise ValueError("frame_size, frame_overlap not correctly configured.")
 
-        # unique time points
-        time = len(X)  # np.unique(X[:, 0]) # ?
-
         labels = None
-        right_overlap = 0
-        max_label = 0
-        exit = False
+        deficit = frame_size - len(X) % frame_size
+        X = np.pad(X, ((0, deficit), (0, 0)), mode="constant", constant_values=np.nan)
+        frames = sliding_window_view(X, frame_size, 0)[::frame_overlap].swapaxes(1, 2)
+        for i, frame in enumerate(frames, 1):
+            if i == len(frames):
+                frame = frame[:-deficit]
 
-        for i in range(0, time, (frame_size - frame_overlap + 1)):
-            if exit:
-                break
-            for period in [X[i : i + frame_size]]:
-                frame = X[np.isin(X[:, 0], period)]
+            self.fit(frame)
+            if not isinstance(labels, np.ndarray):
+                labels = self.labels
+            else:
+                right_overlap = min(frame_overlap, len(frame))
+                frame_one_overlap_labels = labels[-right_overlap:]
+                frame_two_overlap_labels = self.labels[0:right_overlap]
 
-                self.fit(frame)
+                mapper = {}
+                for i in list(zip(frame_one_overlap_labels, frame_two_overlap_labels)):
+                    mapper[i[1]] = i[0]
+                mapper[-1] = -1  # avoiding outliers being mapped to cluster
 
-                # match the labels in the overlaped zone
-                # objects in the second frame are relabeled
-                # to match the cluster id from the first frame
-                if not isinstance(labels, np.ndarray):
-                    labels = self.labels
+                # clusters without overlapping points are given new cluster
+                ignore_clusters = set(self.labels) - set(frame_two_overlap_labels)
+                # recode them to new cluster value
+                if -1 in labels:
+                    labels_counter = len(set(labels)) - 1
                 else:
-                    frame_one_overlap_labels = labels[len(labels) - right_overlap :]
-                    frame_two_overlap_labels = self.labels[0:right_overlap]
+                    labels_counter = len(set(labels))
+                for j in ignore_clusters:
+                    mapper[j] = labels_counter
+                    labels_counter += 1
 
-                    mapper = {}
-                    for i in list(
-                        zip(frame_one_overlap_labels, frame_two_overlap_labels)
-                    ):
-                        mapper[i[1]] = i[0]
-                    mapper[-1] = -1  # avoiding outliers being mapped to cluster
+                # objects in the second frame are relabeled to match the cluster id from the first frame
+                # objects in clusters with no overlap are assigned to new clusters
+                new_labels = np.array([mapper[j] for j in self.labels])
 
-                    # clusters without overlapping points are given new cluster
-                    ignore_clusters = set(self.labels) - set(frame_two_overlap_labels)
-                    # recode them to new cluster value
-                    if -1 in labels:
-                        labels_counter = len(set(labels)) - 1
-                    else:
-                        labels_counter = len(set(labels))
-                    for j in ignore_clusters:
-                        mapper[j] = labels_counter
-                        labels_counter += 1
-
-                    # objects in the second frame are relabeled to match the cluster id from the first frame
-                    # objects in clusters with no overlap are assigned to new clusters
-                    new_labels = np.array([mapper[j] for j in self.labels])
-
-                    # delete the right overlap
-                    labels = labels[0 : len(labels) - right_overlap]
-                    # change the labels of the new clustering and concat
-                    labels = np.concatenate((labels, new_labels))
-                    if len(labels) == len(X):
-                        exit = True
-                        break
-
-                right_overlap = len(X[np.isin(X[:, 0], period[-frame_overlap + 1 :])])
+                # delete the right overlap
+                labels = labels[0 : len(labels) - right_overlap]
+                # change the labels of the new clustering and concat
+                labels = np.concatenate((labels, new_labels))
+                if len(labels) >= len(X):
+                    break
 
         self.labels = labels[: len(X)]
         return self
