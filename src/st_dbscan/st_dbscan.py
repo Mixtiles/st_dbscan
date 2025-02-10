@@ -96,7 +96,7 @@ class ST_DBSCAN():
 
         n, m = X.shape
 
-        if len(X) < 5000:
+        if len(X) < 20000:
             # compute with quadratic memory consumption
 
             # Compute sqaured form Euclidean Distance Matrix for 'time' attribute and the spatial attributes
@@ -173,7 +173,7 @@ class ST_DBSCAN():
             [0,0.54,0.34],...])
         frame_size : float, default= None
             If not none the dataset is split into frames and merged aferwards
-        frame_overlap : float, default=eps2
+        frame_overlap : float, default=temporal_eps
             If frame_size is set - there will be an overlap between the frames
             to merge the clusters afterwards 
         Returns
