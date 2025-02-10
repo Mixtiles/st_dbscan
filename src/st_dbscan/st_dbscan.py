@@ -96,7 +96,7 @@ class ST_DBSCAN():
 
         n, m = X.shape
 
-        if len(X) < 20000:
+        if len(X) < 5000:
             # compute with quadratic memory consumption
 
             # Compute sqaured form Euclidean Distance Matrix for 'time' attribute and the spatial attributes
