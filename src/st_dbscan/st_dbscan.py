@@ -104,15 +104,17 @@ class ST_DBSCAN():
             if self.spatial_metric == "haversine":
                 spatial_dist = haversine_distances(np.radians(X[:, 1:]))
             else:
-                spatial_dist = pdist(X[:, 1:].reshape(n, 2), metric=self.spatial_metric)
+                spatial_dist = pdist(X[:, 1:], metric=self.spatial_metric)
+                spatial_dist = squareform(spatial_dist)
 
             # filter the spatial_dist matrix using the time_dist
+            time_dist = squareform(time_dist)
             dist = np.where(time_dist <= self.temporal_eps, spatial_dist, 2 * self.spatial_eps)
 
             db = DBSCAN(eps=self.spatial_eps,
                         min_samples=self.min_samples,
                         metric='precomputed')
-            db.fit(squareform(dist))
+            db.fit(dist)
 
             self.labels = db.labels_
 
