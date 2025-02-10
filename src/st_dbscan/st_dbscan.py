@@ -113,7 +113,8 @@ class ST_DBSCAN():
 
             db = DBSCAN(eps=self.spatial_eps,
                         min_samples=self.min_samples,
-                        metric='precomputed')
+                        metric='precomputed',
+                        n_jobs=self.n_jobs,)
             db.fit(dist)
 
             self.labels = db.labels_
@@ -125,14 +126,16 @@ class ST_DBSCAN():
                 # compute with sparse matrices
                 # Compute sparse matrix für Euclidean distance
                 nn_spatial = NearestNeighbors(metric=self.spatial_metric,
-                                              radius=self.spatial_eps)
+                                              radius=self.spatial_eps,
+                                              n_jobs=self.n_jobs,)
                 nn_spatial.fit(X[:, 1:])
                 euc_sp = nn_spatial.radius_neighbors_graph(X[:, 1:],
                                                            mode='distance')
 
                 # Compute sparse matrix für temporal distance
                 nn_time = NearestNeighbors(metric=self.temporal_metric,
-                                           radius=self.temporal_eps)
+                                           radius=self.temporal_eps,
+                                           n_jobs=self.n_jobs,)
                 nn_time.fit(X[:, 0].reshape(n, 1))
                 time_sp = nn_time.radius_neighbors_graph(X[:, 0].reshape(n, 1),
                                                          mode='distance')
@@ -149,7 +152,8 @@ class ST_DBSCAN():
 
                 db = DBSCAN(eps=self.spatial_eps,
                             min_samples=self.min_samples,
-                            metric='precomputed')
+                            metric='precomputed',
+                            n_jobs=self.n_jobs,)
                 db.fit(dist_sp)
 
                 self.labels = db.labels_
