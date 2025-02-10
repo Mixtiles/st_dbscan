@@ -24,10 +24,10 @@ class ST_DBSCAN():
     A class to perform the ST_DBSCAN clustering
     Parameters
     ----------
-    eps1 : float, default=0.5
+    spatial_eps : float, default=0.5
         The spatial density threshold (maximum spatial distance) between 
         two points to be considered related.
-    eps2 : float, default=10
+    temporal_eps : float, default=10
         The temporal threshold (maximum temporal distance) between two 
         points to be considered related.
     min_samples : int, default=5
@@ -57,15 +57,18 @@ class ST_DBSCAN():
     """
 
     def __init__(self,
-                 eps1=0.5,
-                 eps2=10,
+                 spatial_eps=0.5,
+                 temporal_eps=10,
                  min_samples=5,
                  metric='euclidean',
+                 spatial_metric=None,
+                 temporal_metric=None,
                  n_jobs=-1):
-        self.eps1 = eps1
-        self.eps2 = eps2
+        self.spatial_eps = spatial_eps
+        self.temporal_eps = temporal_eps
         self.min_samples = min_samples
-        self.metric = metric
+        self.spatial_metric = spatial_metric or metric
+        self.temporal_metric = temporal_metric or metric
         self.n_jobs = n_jobs
 
     def fit(self, X):
@@ -86,7 +89,7 @@ class ST_DBSCAN():
         # check if input is correct
         X = check_array(X)
 
-        if not self.eps1 > 0.0 or not self.eps2 > 0.0 or not self.min_samples > 0.0:
+        if not self.spatial_eps > 0.0 or not self.temporal_eps > 0.0 or not self.min_samples > 0.0:
             raise ValueError('eps1, eps2, minPts must be positive')
 
         n, m = X.shape
@@ -95,13 +98,13 @@ class ST_DBSCAN():
             # compute with quadratic memory consumption
 
             # Compute sqaured form Euclidean Distance Matrix for 'time' attribute and the spatial attributes
-            time_dist = pdist(X[:, 0].reshape(n, 1), metric=self.metric)
-            euc_dist = pdist(X[:, 1:], metric=self.metric)
+            time_dist = pdist(X[:, 0].reshape(n, 1), metric=self.temporal_metric)
+            euc_dist = pdist(X[:, 1:], metric=self.spatial_metric)
 
             # filter the euc_dist matrix using the time_dist
-            dist = np.where(time_dist <= self.eps2, euc_dist, 2 * self.eps1)
+            dist = np.where(time_dist <= self.temporal_eps, euc_dist, 2 * self.spatial_eps)
 
-            db = DBSCAN(eps=self.eps1,
+            db = DBSCAN(eps=self.spatial_eps,
                         min_samples=self.min_samples,
                         metric='precomputed')
             db.fit(squareform(dist))
@@ -114,15 +117,15 @@ class ST_DBSCAN():
 
                 # compute with sparse matrices
                 # Compute sparse matrix für Euclidean distance
-                nn_spatial = NearestNeighbors(metric=self.metric,
-                                              radius=self.eps1)
+                nn_spatial = NearestNeighbors(metric=self.spatial_metric,
+                                              radius=self.spatial_eps)
                 nn_spatial.fit(X[:, 1:])
                 euc_sp = nn_spatial.radius_neighbors_graph(X[:, 1:],
                                                            mode='distance')
 
                 # Compute sparse matrix für temporal distance
-                nn_time = NearestNeighbors(metric=self.metric,
-                                           radius=self.eps2)
+                nn_time = NearestNeighbors(metric=self.temporal_metric,
+                                           radius=self.temporal_eps)
                 nn_time.fit(X[:, 0].reshape(n, 1))
                 time_sp = nn_time.radius_neighbors_graph(X[:, 0].reshape(n, 1),
                                                          mode='distance')
@@ -137,7 +140,7 @@ class ST_DBSCAN():
                 dist_sp = dist_sp.tocsc()
                 dist_sp.eliminate_zeros()
 
-                db = DBSCAN(eps=self.eps1,
+                db = DBSCAN(eps=self.spatial_eps,
                             min_samples=self.min_samples,
                             metric='precomputed')
                 db.fit(dist_sp)
@@ -171,9 +174,9 @@ class ST_DBSCAN():
 
         # default values for overlap
         if frame_overlap == None:
-            frame_overlap = self.eps2
+            frame_overlap = self.temporal_eps
 
-        if not self.eps1 > 0.0 or not self.eps2 > 0.0 or not self.min_samples > 0.0:
+        if not self.spatial_eps > 0.0 or not self.temporal_eps > 0.0 or not self.min_samples > 0.0:
             raise ValueError('eps1, eps2, minPts must be positive')
 
         if not frame_size > 0.0 or not frame_overlap > 0.0 or frame_size < frame_overlap:
