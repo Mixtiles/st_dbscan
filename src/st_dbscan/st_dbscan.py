@@ -11,8 +11,10 @@ ST-DBSCAN - fast scalable implementation of ST DBSCAN
 # License: MIT
 
 import numpy as np
+import sklearn.metrics.pairwise
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import DBSCAN
+from sklearn.metrics.pairwise import haversine_distances
 from sklearn.utils import check_array
 from scipy.sparse import coo_matrix
 from sklearn.neighbors import NearestNeighbors
@@ -90,7 +92,7 @@ class ST_DBSCAN():
         X = check_array(X)
 
         if not self.spatial_eps > 0.0 or not self.temporal_eps > 0.0 or not self.min_samples > 0.0:
-            raise ValueError('eps1, eps2, minPts must be positive')
+            raise ValueError('spatial_eps, temporal_eps, min_samples must be positive')
 
         n, m = X.shape
 
@@ -99,10 +101,13 @@ class ST_DBSCAN():
 
             # Compute sqaured form Euclidean Distance Matrix for 'time' attribute and the spatial attributes
             time_dist = pdist(X[:, 0].reshape(n, 1), metric=self.temporal_metric)
-            euc_dist = pdist(X[:, 1:], metric=self.spatial_metric)
+            if self.spatial_metric == "haversine":
+                spatial_dist = haversine_distances(np.radians(X[:, 1:]))
+            else:
+                spatial_dist = pdist(X[:, 1:].reshape(n, 2), metric=self.spatial_metric)
 
-            # filter the euc_dist matrix using the time_dist
-            dist = np.where(time_dist <= self.temporal_eps, euc_dist, 2 * self.spatial_eps)
+            # filter the spatial_dist matrix using the time_dist
+            dist = np.where(time_dist <= self.temporal_eps, spatial_dist, 2 * self.spatial_eps)
 
             db = DBSCAN(eps=self.spatial_eps,
                         min_samples=self.min_samples,
